@@ -86,7 +86,7 @@ The library includes several built-in processors for option types:
 | Processor                | Description                                                           |
 | ------------------------ | --------------------------------------------------------------------- |
 | `string()`               | Returns the argument as a string.                                     |
-| `boolean()`              | Returns `true` (can be explicitly set using `=true` or `=false`).     |
+| `boolean()`              | Returns `true` if present. (can explicitly set with `=true`/`false`). |
 | `int(min, max)`          | Validates and returns an integer, optionally between `min` and `max`. |
 | `float(min, max)`        | Validates and returns a number, optionally between `min` and `max`.   |
 | `one_of(...options)`     | Ensures value is one of the provided strings.                         |
@@ -127,7 +127,7 @@ Behaviour when encountering an error can be customised by passing a custom `on_e
 | ----------------------------- | ----------------------- | ----------------------- | ------------------------------------------------ |
 | `collect_values`              | `boolean`               | `true`                  | Collect standalone values into the output array. |
 | `collect_unknown_options`     | `boolean`               | `false`                 | Parse options not defined in the schema.         |
-| `allow_double_dash_delimeter` | `boolean`               | `true`                  | Allow passing `--` to stop option parsing.       |
+| `allow_double_dash_delimiter` | `boolean`               | `true`                  | Allow passing `--` to stop option parsing.       |
 | `argv`                        | `string[]`              | `process.argv.slice(2)` | Array of arguments to parse.                     |
 | `on_error`                    | `(msg: string) => void` | `standard_error`        | Custom error handler.                            |
 
@@ -177,9 +177,11 @@ Options:
      --name <name>    Your name
 ```
 
+Extra information in the help menu is sourced from options' `arg_label` and `description` fields.
+
 ### Help configuration
 
-The behaviour of `help_string` can be customized by passing a second configuration object with one or more of these values:
+The behaviour of `help_string` can be customised by passing a second configuration object with one or more of these values:
 
 | Option                 | Type                | Default     | Description                                   |
 | ---------------------- | ------------------- | ----------- | --------------------------------------------- |

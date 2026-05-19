@@ -114,7 +114,7 @@ export type ArgsConfig = {
      * 
      * `true` by default.
      */
-    allow_double_dash_delimeter: boolean,
+    allow_double_dash_delimiter: boolean,
     /**
      * Array from which to parse arguments.
      * 
@@ -160,7 +160,7 @@ function is_number(str: string) {
 export function parse_args<O extends Options>(options: O, config: Partial<ArgsConfig> = {}): ParsedArgs<O> {
     let collect_values = config.collect_values ?? true,
         collect_unknown_options = config.collect_unknown_options ?? false,
-        allow_double_dash_delimeter = config.allow_double_dash_delimeter ?? true,
+        allow_double_dash_delimiter = config.allow_double_dash_delimiter ?? true,
         argv = config.argv ?? process.argv.slice(2),
         error = config.on_error ?? standard_error,
         next_arg_is_value = () =>
@@ -169,7 +169,7 @@ export function parse_args<O extends Options>(options: O, config: Partial<ArgsCo
         // Current index in argv 
         arg_index = 0,
         // Whether a -- has been encountered
-        double_dash_delimeter_encountered = false,
+        double_dash_delimiter_encountered = false,
         // Output object
         out = [] as Record<string, any> & string[];
 
@@ -180,7 +180,7 @@ export function parse_args<O extends Options>(options: O, config: Partial<ArgsCo
 
     while (argv[arg_index] !== undefined) {
         let arg = argv[arg_index];
-        if (arg[0] != "-" || double_dash_delimeter_encountered || is_number(arg.slice(1))) {
+        if (arg[0] != "-" || double_dash_delimiter_encountered || is_number(arg.slice(1))) {
             // Lone value, either collect or error
             if (collect_values) {
                 out.push(arg);
@@ -227,10 +227,10 @@ export function parse_args<O extends Options>(options: O, config: Partial<ArgsCo
                 continue;
             }
         } else {
-            // Check for a -- delimeter
+            // Check for a -- delimiter
             if (arg == "--") {
-                if (allow_double_dash_delimeter) {
-                    double_dash_delimeter_encountered = true;
+                if (allow_double_dash_delimiter) {
+                    double_dash_delimiter_encountered = true;
                     arg_index += 1;
                     continue;
                 } else {
@@ -296,7 +296,6 @@ export function parse_args<O extends Options>(options: O, config: Partial<ArgsCo
         } else {
             out[option_name] = transformed_values![0];
         }
-        // out[option_name] = option?.multiple ? transformed_values : transformed_values![0];
         arg_index += 1;
     }
 
