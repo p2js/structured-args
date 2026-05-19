@@ -55,7 +55,7 @@ export function boolean() {
 export function int(min = -Infinity, max = +Infinity): ArgProcessor<number> {
     return arg => {
         let int_arg = Number(arg);
-        if (!isFinite(int_arg) || int_arg != Math.round(int_arg) || int_arg < min || int_arg > max) {
+        if (!Number.isInteger(int_arg) || int_arg < min || int_arg > max) {
             throw `Must be an integer between ${min} and ${max}`;
         }
         return int_arg;
