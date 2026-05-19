@@ -19,11 +19,21 @@ $ node index.js -v=false --name CLI
 Hello, CLI!
 ```
 
-## Parsing
+## Table of contents
 
-Parsing supports:
+- [Argument parsing features](#argument-parsing-features)
+    - [Option configuration](#option-configuration)
+    - [Error handling](#error-handling)
+    - [Configuration](#configuration)
+    - [Custom option types](#custom-option-types)
+- [Help menu generation](#help-menu-generation)
+    - [Help configuration](#help-configuration)
 
-- Bundling short options with `-` (All options except for the last ones must be boolean)
+## Argument parsing features
+
+The library's argument parsing supports:
+
+- Bundling short options with `-` (where all options except for the last one must be boolean)
 - `getopt` style short options immediately followed by their value, eg `-O3` or `-ifile.js`
 - Assigning values with a `=` sign, eg `--letter=a`
 - Using a standalone `--` to delimit options and values
@@ -49,7 +59,42 @@ $ node index.js -r --depth 3 path/to/dir
 true
 ```
 
-## Error handling
+### Option configuration
+
+Specific options can be customised to accept multiple values, have a default when a value is not provided, or given custom types using processor functions.
+
+```ts
+import { parse_args, int, list, boolean } from "structured-args";
+
+const options = {
+    port: { alias: "p", type: int(1, 65535), default: 8080 },
+    tags: { type: string(), multiple: true },
+    debug: { alias: "d", type: boolean() }
+};
+
+const args = parse_args(options);
+console.log(args);
+```
+
+```bash
+$ node index.js -p 0xBB8 --tags web api prod --debug extra_value
+['extra_value', port: 3000, tags: ['web', 'api', 'prod'], debug: true]
+```
+
+The library includes several built-in processors for option types:
+
+| Processor                | Description                                                           |
+| ------------------------ | --------------------------------------------------------------------- |
+| `string()`               | Returns the argument as a string.                                     |
+| `boolean()`              | Returns `true` (can be explicitly set using `=true` or `=false`).     |
+| `int(min, max)`          | Validates and returns an integer, optionally between `min` and `max`. |
+| `float(min, max)`        | Validates and returns a number, optionally between `min` and `max`.   |
+| `one_of(...options)`     | Ensures value is one of the provided strings.                         |
+| `not_one_of(...options)` | Ensures value is *not* one of the provided strings.                   |
+| `list(separator)`        | Splits a string into an array by `separator` (default `,`).           |
+
+
+### Error handling
 
 By default, `parse_args` prints a descriptive error message to `stderr` and exits the process when it encounters invalid input.
 
@@ -67,36 +112,16 @@ $ node test --v
 Argument error: Unrecognised option 'v'.
 Did you mean to use the alias '-v'?
 
-# Type validation failure (from built-in processor - see example below)
+# Type validation failure
 $ node index.js --port=99999
 Argument error: port: Must be an integer between 1 and 65535 (Received: '99999')
 ```
 
-### Advanced usage
-
-`parse_args` handles complex scenarios like multi-value flags and custom type validation out of the box.
-
-```ts
-import { parse_args, int, list, boolean } from "structured-args";
-
-const options = {
-    port: { alias: "p", type: int(1, 65535), default: 8080 },
-    tags: { type: string(), multiple: true },
-    debug: { alias: "d", type: boolean() }
-};
-
-const args = parse_args(options);
-console.log(args);
-```
-
-```bash
-$ node node index.js -p 0xBB8 --tags web api prod --debug extra_value
-['extra_value', port: 3000, tags: ['web', 'api', 'prod'], debug: true]
-```
+Behaviour when encountering an error can be customised by passing a custom `on_error` function in the configuration object (see below). 
 
 ### Configuration
 
-The `parse_args` function accepts an optional configuration object:
+`parse_args` accepts an optional configuration object with one or more of these values:
 
 | Option                        | Type                    | Default                 | Description                                      |
 | ----------------------------- | ----------------------- | ----------------------- | ------------------------------------------------ |
@@ -106,27 +131,13 @@ The `parse_args` function accepts an optional configuration object:
 | `argv`                        | `string[]`              | `process.argv.slice(2)` | Array of arguments to parse.                     |
 | `on_error`                    | `(msg: string) => void` | `standard_error`        | Custom error handler.                            |
 
-## Option types
-
-The library includes several built-in processors in `structured-args/option-types`:
-
-| Processor                | Description                                                           |
-| ------------------------ | --------------------------------------------------------------------- |
-| `string()`               | Returns the argument as a string.                                     |
-| `boolean()`              | Returns `true` (can be explicitly set using `=true` or `=false`).     |
-| `int(min, max)`          | Validates and returns an integer, optionally between `min` and `max`. |
-| `float(min, max)`        | Validates and returns a number, optionally between `min` and `max`.   |
-| `one_of(...options)`     | Ensures value is one of the provided strings.                         |
-| `not_one_of(...options)` | Ensures value is *not* one of the provided strings.                   |
-| `list(separator)`        | Splits a string into an array by `separator` (default `,`).           |
-
 ### Custom option types
 
 A flag type is simply a function that takes a `string` and returns a value of any type. If the input is invalid, it should throw an error message as a string.
 
 ```ts
 const absolutePath = (arg: string) => {
-    if (!arg.startsWith("/")) throw "Must be an absolute path";
+    if (!arg.startsWith("/")) throw "must be an absolute path";
     return arg;
 };
 
@@ -137,22 +148,22 @@ If a custom processor throws an error, the library catches it and appends the re
 
 ```bash
 $ node index.js --path=./relative/path
-Argument error: path: Must be an absolute path (Received: './relative/path')
+Argument error: path: must be an absolute path (Received: './relative/path')
 ```
 
 ## Help menu generation
 
-This library can also be used to generate a flag table to use in help menus:
+This library also includes a generator for a flag table to use in help menus:
 
 ```ts
 import { help_string, boolean, string } from "structured-args";
 
 const options = {
     verbose: { alias: "v", type: boolean(), description: "Show verbose output" },
-    name: { alias: "n", type: string(), arg_label: "<name>", description: "Your name" }
+    name: { type: string(), arg_label: "<name>", description: "Your name" }
 };
 
-console.log("Usage: my-app [options]\n");
+console.log("Usage: my-app [options]\nOptions:\n");
 console.log(help_string(options));
 ```
 
@@ -160,14 +171,15 @@ Output:
 
 ```text
 Usage: my-app [options]
+Options:
 
  -v, --verbose        Show verbose output
- -n, --name <name>    Your name
+     --name <name>    Your name
 ```
 
 ### Help configuration
 
-The `help_string` generator can be customized with a `HelpConfig` object:
+The behaviour of `help_string` can be customized by passing a second configuration object with one or more of these values:
 
 | Option                 | Type                | Default     | Description                                   |
 | ---------------------- | ------------------- | ----------- | --------------------------------------------- |

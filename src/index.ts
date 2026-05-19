@@ -5,7 +5,7 @@ import { string, one_of, not_one_of, boolean, int, float, list } from "./option_
 export { string, one_of, not_one_of, boolean, int, float, list };
 
 /**
- * A processing function for flag values.
+ * A processing function for option values.
  * See the included argument processors imported from "cl-args/option-types".
  */
 export type ArgProcessor<T = string> = (arg: string) => T;
@@ -18,15 +18,18 @@ export type Options = {
     [key: string]: {
         /** Optional one-character alias for the option.  */
         alias?: string,
-        /** Option type, passed as a function that the option values will be passed to for processing. */
+        /** Option type, passed as a function that will process the option's values. */
         type: ArgProcessor<any>,
-        /** Default value. Will be assigned to flags when not passed, or for non-boolean flags passed without a value. */
+        /** 
+         * Default value. Will be assigned when a flag is not passed, 
+         * or for non-boolean flags passed without a value. 
+         */
         default?: any,
         /** 
-         * Whether the option accepts multiple values.
+         * Whether the option accepts multiple values. False by default.
          * 
-         * If set to true, the parser will assign it every following string until 
-         * it sees another option, or the separator `--`. 
+         * If set to true, the parser will assign every following string,
+         * up to the next option or the separator `--`. 
          */
         multiple?: boolean,
         /** Label for the argument that the option can receive. Used to generate the help string. */
@@ -44,19 +47,22 @@ type ParsedArgs<O extends Options> = {
  * Configuration object for the help string generator.
  */
 export type HelpConfig = {
-    /** Whether to only include options that have a non-empty description. */
+    /** Whether to only include options that have a non-empty description. `false` by default. */
     descriptions_only: boolean,
-    /** Color specifier(s) for how the flag strings should be styled. */
+    /** 
+     * Color specifier(s) for how the flag strings should be styled.
+     * 
+     * Use [the modifiers provided by node's `util` module](https://nodejs.org/docs/latest-v22.x/api/util.html#modifiers).
+     */
     option_format: util.InspectColor | readonly util.InspectColor[],
-    /** How many spaces to have in each line before the flag strings. */
+    /** How many spaces to have in each line before the flag strings. `1` by default. */
     spaces_before_option: number,
-    /** How many spaces to have in each line after the flag strings. */
+    /** How many spaces to have in each line after the flag strings. `4` by default. */
     spaces_after_option: number
 }
 
 /**
  * Generate a string for a command-line option schema to use in a help menu.
- * 
  * @param options command-line option schema
  * @param config additional configuration for the help string
  */
@@ -86,25 +92,32 @@ export function help_string<O extends Options>(options: O, config: Partial<HelpC
  */
 export type ArgsConfig = {
     /** 
-     * Whether to collect standalone values (not tied to an option) 
-     * into the output array, or error if one is encountered.
+     * Whether to collect standalone values (not tied to an option) into the output array.
+     *  
+     * If set to `false`, the parser will error on any standalone values. 
+     * 
      * `true` by default.
      */
     collect_values: boolean,
     /**
-     * Whether to consider unknown options (not defined in the schema)
-     * or error when one is encountered.
+     * Whether to consider unknown options (not defined in the schema).
+     * Unknown options are booleans if no value is passed, and strings otherwise.
+     * 
+     * If set to `false`, the parser will error on any unknown options.
+     * 
      * `false` by default.
      */
     collect_unknown_options: boolean,
     /**
      * Whether to allow `--` by itself as delimiter between options
      * and values, or error when encountered.
+     * 
      * `true` by default.
      */
     allow_double_dash_delimeter: boolean,
     /**
      * Array from which to parse arguments.
+     * 
      * Set to `process.argv.slice(2)` by default.
      */
     argv: string[],
@@ -141,9 +154,8 @@ function is_number(str: string) {
 
 /**
  * Parse options given a command-line schema.
- * @param options 
- * @param config 
- * @returns 
+ * @param options command-line option schema
+ * @param config additional configuration for argument parsing
  */
 export function parse_args<O extends Options>(options: O, config: Partial<ArgsConfig> = {}): ParsedArgs<O> {
     let collect_values = config.collect_values ?? true,
@@ -168,7 +180,6 @@ export function parse_args<O extends Options>(options: O, config: Partial<ArgsCo
 
     while (argv[arg_index] !== undefined) {
         let arg = argv[arg_index];
-
         if (arg[0] != "-" || double_dash_delimeter_encountered || is_number(arg.slice(1))) {
             // Lone value, either collect or error
             if (collect_values) {
