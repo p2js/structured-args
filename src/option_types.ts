@@ -12,10 +12,10 @@ export function string() {
  * Parse an option value as a string
  * that must be one of the specified options.
  */
-export function one_of(...options: string[]): ArgProcessor {
+export function one_of<S extends string>(...options: S[]): ArgProcessor<S> {
     return (arg: string) => {
-        if (options.includes(arg)) {
-            return arg;
+        if (options.includes(arg as S)) {
+            return arg as S;
         }
         throw `Must be one of: ${options.join(", ")}`;
     }
@@ -82,4 +82,4 @@ export function float(min = -Infinity, max = +Infinity): ArgProcessor<number> {
  */
 export function list(separator: string | RegExp = ","): ArgProcessor<string[]> {
     return arg => arg.split(separator);
-}   
+}
