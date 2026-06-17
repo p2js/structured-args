@@ -1,6 +1,6 @@
 {
   "name": "structured-args",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "description": "A feature-complete, type safe and highly flexible command line argument parsing library",
   "author": "Alfio (https://github.com/p2js)",
   "license": "ISC",
@@ -34,9 +34,9 @@
     "parse",
     "parser"
   ],
-  "packageManager": "pnpm@10.30.3",
+  "packageManager": "pnpm@11.7.0",
   "devDependencies": {
-    "@types/node": "^25.9.0",
+    "@types/node": "^25.9.3",
     "typescript": "^5.9.3"
   }
 }
