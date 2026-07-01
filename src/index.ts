@@ -12,7 +12,7 @@ export type ArgProcessor<T = string> = (arg: string) => T;
 
 /**
  * Type representing a schema for command-line options.
- * The keys correspond to the option's primary name (which will be the one following `--`).
+ * The keys correspo nd to the option's primary name (which will be the one following `--`).
  */
 export type Options = {
     [key: string]: {
@@ -25,6 +25,14 @@ export type Options = {
          * or for non-boolean flags passed without a value. 
          */
         default?: any,
+        /**
+         * Whether the option is required. False by default.
+         * 
+         * If set to true, the parser will emit an error when the option
+         * is not passed. Default values and boolean options 
+         * will override the requirement.
+         */
+        required?: boolean,
         /** 
          * Whether the option accepts multiple values. False by default.
          * 
@@ -39,8 +47,18 @@ export type Options = {
     }
 }
 
+/**
+ * The type that an option will be after parsing.
+ */
+type OptionType<O extends Options[string]> =
+    | ReturnType<O['type']>
+    | (O extends { default: infer D } ? D : O extends { required: true } ? never : undefined);
+
+/**
+ * The parsed options object.
+ */
 type ParsedArgs<O extends Options> = {
-    [K in keyof O]: ReturnType<O[K]['type']> | undefined
+    [K in keyof O]: OptionType<O[K]>
 } & string[]
 
 /**
@@ -70,7 +88,7 @@ export function help_string<O extends Options>(options: O, config: Partial<HelpC
     let exclude_options_without_description = config.descriptions_only ?? false,
         spaces_before_option = " ".repeat(config.spaces_before_option ?? 1),
         spaces_after_option = " ".repeat(config.spaces_after_option ?? 4),
-        option_format: ArgProcessor<string> = config.option_format === undefined ? x => x : (flag) => util.styleText(config.option_format!, flag);
+        option_format: ArgProcessor = config.option_format === undefined ? x => x : (flag) => util.styleText(config.option_format!, flag);
 
     let option_strings = Object.entries(options)
         .filter(([_, { description }]) => !exclude_options_without_description || description)
@@ -128,13 +146,13 @@ export type ArgsConfig = {
      * By default, the parser will print the error to `process.stderr`
      * and exit with a failing code.
      */
-    on_error: (msg: string) => void;
+    on_error: (msg: string) => never;
 }
 
 // Standard error function
 function standard_error(msg: string) {
     process.stderr.write(`Argument error: ${msg}\n`);
-    process.exit(1);
+    return process.exit(1);
 }
 
 // Helper function to determine whether a string contains a positive number-like string
@@ -165,18 +183,15 @@ export function parse_args<O extends Options>(options: O, config: Partial<ArgsCo
         error = config.on_error ?? standard_error,
         next_arg_is_value = () =>
             argv[arg_index + 1] !== undefined
-            && (argv[arg_index + 1][0] != "-" || (argv[arg_index + 1].length > 1 && is_number(argv[arg_index + 1].substring(1)))),
+            && (argv[arg_index + 1][0] !== "-"
+                || (argv[arg_index + 1].length > 1
+                    && is_number(argv[arg_index + 1].substring(1)))),
         // Current index in argv 
         arg_index = 0,
         // Whether a -- has been encountered
         double_dash_delimiter_encountered = false,
         // Output object
         out = [] as Record<string, any> & string[];
-
-    // Populate the output object with default values
-    Object.entries(options).forEach(([name, opt]) => {
-        if (opt.default !== undefined) out[name] = opt.default;
-    });
 
     while (argv[arg_index] !== undefined) {
         let arg = argv[arg_index];
@@ -185,7 +200,7 @@ export function parse_args<O extends Options>(options: O, config: Partial<ArgsCo
             if (collect_values) {
                 out.push(arg);
             } else {
-                error(`Unrecognised value '${arg}'`);
+                throw error(`Unrecognised value '${arg}'`);
             }
             arg_index += 1;
             continue;
@@ -197,13 +212,12 @@ export function parse_args<O extends Options>(options: O, config: Partial<ArgsCo
 
         if (arg[1] != "-") {
             // Short-form option, enable any boolean option seen until the first non-boolean option
-            if (arg.length == 1) error("Invalid flag '-'")
+            if (arg.length == 1) throw error("Invalid flag '-'");
             for (let idx_in_arg = 1; idx_in_arg < arg.length; idx_in_arg++) {
                 let alias_option = Object.keys(options).find(key => options[key].alias == arg[idx_in_arg]);
                 // Always error on unrecognised aliased option
                 if (alias_option === undefined) {
-                    error(`Unrecognised option alias '${arg[idx_in_arg]}'`);
-                    continue;
+                    throw error(`Unrecognised option alias '${arg[idx_in_arg]}'`);
                 };
                 // Enable any boolean option encountered (if not explicitly set with =)
                 if (options[alias_option].type == boolean() && arg[idx_in_arg + 1] != "=") {
@@ -213,7 +227,7 @@ export function parse_args<O extends Options>(options: O, config: Partial<ArgsCo
                 // Non-boolean option, treat the rest of the flag as the value
                 option_name = alias_option;
                 option = options[alias_option];
-                if (++idx_in_arg == arg.length) {
+                if (++idx_in_arg === arg.length) {
                     // End of string, grab the next arg instead (if another value)
                     if (next_arg_is_value()) raw_values[0] = argv[++arg_index];
                     break;
@@ -228,18 +242,18 @@ export function parse_args<O extends Options>(options: O, config: Partial<ArgsCo
             }
         } else {
             // Check for a -- delimiter
-            if (arg == "--") {
+            if (arg === "--") {
                 if (allow_double_dash_delimiter) {
                     double_dash_delimiter_encountered = true;
                     arg_index += 1;
                     continue;
                 } else {
-                    error("-- delimiter is not allowed");
+                    throw error("-- delimiter is not allowed");
                 }
             }
             // Otherwise, treat anything before a = as the name
             let option_name_end = 2;
-            while ((option_name_end != arg.length) && (arg[option_name_end] != "=")) option_name_end++;
+            while ((option_name_end !== arg.length) && (arg[option_name_end] !== "=")) option_name_end++;
             option_name = arg.substring(2, option_name_end);
             option = options[option_name];
             if (!option && !collect_unknown_options) {
@@ -247,12 +261,12 @@ export function parse_args<O extends Options>(options: O, config: Partial<ArgsCo
                 if (Object.keys(options).find(key => options[key].alias == option_name)) {
                     error_message += `.\nDid you mean to use the alias '-${option_name}'?`;
                 }
-                error(error_message);
+                throw error(error_message);
             }
-            if (arg[option_name_end] == "=") {
+            if (arg[option_name_end] === "=") {
                 //  treat the rest of the string as the sole value if a = is present
                 raw_values[0] = arg.substring(option_name_end + 1);
-            } else if (option?.type == boolean()) {
+            } else if (option?.type === boolean()) {
                 // Do not grab the next value if the option is boolean, just set it to the string true
                 raw_values[0] = "true";
             } else if (option?.multiple) {
@@ -269,7 +283,7 @@ export function parse_args<O extends Options>(options: O, config: Partial<ArgsCo
          * 
          * If the option is unrecognised, treat it as a boolean (ie. set it to true) 
          */
-        if (raw_values.length == 0 && !option?.multiple) {
+        if (raw_values.length === 0 && !option?.multiple) {
             if (option?.default) {
                 out[option_name] = option.default;
                 arg_index += 1;
@@ -279,7 +293,8 @@ export function parse_args<O extends Options>(options: O, config: Partial<ArgsCo
                 arg_index += 1;
                 continue;
             }
-            error(`Expected a value after option '${option_name}' (Found ${arg_index + 1 >= argv.length ? "'" + argv[arg_index + 1] + "'" : "nothing"})`);
+            let found = arg_index + 1 > argv.length ? "'" + argv[arg_index + 1] + "'" : "nothing";
+            throw error(`Expected a value after option '${option_name}' (Found ${found})`);
         }
         // transform options according to the type function (treating an unknown option as a string)
         let transformer = option?.type || string();
@@ -287,7 +302,7 @@ export function parse_args<O extends Options>(options: O, config: Partial<ArgsCo
         try {
             transformed_values = raw_values.map(v => transformer(v));
         } catch (transform_error) {
-            error(`${option_name}: ` + transform_error as string + ` (Received: '${raw_values}')`);
+            throw error(`${option_name}: ` + transform_error as string + ` (Received: '${raw_values}')`);
         }
         // Set the option to the value (or values if expecting multiple)
         if (option?.multiple) {
@@ -297,6 +312,23 @@ export function parse_args<O extends Options>(options: O, config: Partial<ArgsCo
             out[option_name] = transformed_values![0];
         }
         arg_index += 1;
+    }
+
+    // For each option that has not been passed, 
+    // Populate the output object with its default value
+    // or error if it's required.
+    let missing_required_options = [];
+    for (let [name, opt] of Object.entries(options)) {
+        if (name in out) continue;
+        if (opt.default || opt.type === boolean()) {
+            out[name] = opt.default || false;
+            continue;
+        }
+        if (opt.required) missing_required_options.push(name);
+    }
+
+    if (missing_required_options.length !== 0) {
+        throw error(`Missing required options: ${missing_required_options.join(", ")}`)
     }
 
     return out as ParsedArgs<O>;

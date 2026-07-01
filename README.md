@@ -7,7 +7,7 @@ import { parse_args, boolean, string } from "structured-args";
 
 const args = parse_args({
     verbose: { alias: "v", type: boolean() },
-    name: { alias: "n", type: string(), default: "world" }
+    name: { alias: "n", type: string(), default: "world", required: true }
 });
 
 console.log(`Hello, ${args.name}!`);
@@ -39,6 +39,7 @@ The library's argument parsing supports:
 - Using a standalone `--` to delimit options and values
 - Treating negative numbers as values rather than flags (including `Infinity` and `-Infinity`)
 - Optionally accepting multiple values for an option, which are joined if the flag is passed more than once
+- Required options that must be included
 - Automatic type conversion and validation via option-type processors
 - Collecting positional arguments (standalone values) into the output array
 
@@ -115,6 +116,10 @@ Did you mean to use the alias '-v'?
 # Type validation failure
 $ node index.js --port=99999
 Argument error: port: Must be an integer between 1 and 65535 (Received: '99999')
+
+# Required option(s) not included
+$ node index.js
+Argument error: Missing required options: foo, bar
 ```
 
 Behaviour when encountering an error can be customised by passing a custom `on_error` function in the configuration object (see below). 
