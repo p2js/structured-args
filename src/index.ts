@@ -146,13 +146,13 @@ export type ArgsConfig = {
      * By default, the parser will print the error to `process.stderr`
      * and exit with a failing code.
      */
-    on_error: (msg: string) => never;
+    on_error: (msg: string) => void;
 }
 
 // Standard error function
 function standard_error(msg: string) {
     process.stderr.write(`Argument error: ${msg}\n`);
-    return process.exit(1);
+    process.exit(1);
 }
 
 // Helper function to determine whether a string contains a positive number-like string
